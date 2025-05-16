@@ -5,16 +5,21 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Painel de Chamadas</title>
   <style>
+    /* Estilo base da página */
     body {
       margin: 0;
       font-family: 'Segoe UI', sans-serif;
       background: linear-gradient(to right, #7CF8A7, #F4F77E);
       overflow: hidden;
     }
+
+    /* Container principal dividido em atual e anteriores */
     .painel-container {
       display: flex;
       height: 100vh;
     }
+
+    /* Área da senha atual */
     .atual {
       width: 65%;
       display: flex;
@@ -25,6 +30,8 @@
       border-right: 3px solid #ddd;
       position: relative;
     }
+
+    /* Estilo da caixa de informações da senha atual */
     .atual .info-box {
       width: 90%;
       border-radius: 30px;
@@ -35,6 +42,8 @@
       background-color: #f0f0f0;
       transition: background-color 0.3s;
     }
+
+    /* Cores diferentes para preferencial e normal */
     .info-box.azul {
       background-color: #3D9BC4;
       color: white;
@@ -43,6 +52,8 @@
       background-color: #F2C744;
       color: black;
     }
+
+    /* Painel lateral das senhas anteriores */
     .anteriores {
       width: 35%;
       padding: 30px;
@@ -50,12 +61,16 @@
       display: flex;
       flex-direction: column;
     }
+
+    /* Título das senhas anteriores */
     .titulo {
       font-size: 1.5em;
       font-weight: bold;
       margin-bottom: 10px;
       text-align: center;
     }
+
+    /* Estilo de cada senha anterior */
     .senha {
       padding: 12px;
       margin-bottom: 8px;
@@ -75,6 +90,8 @@
       background-color: #F2C744;
       color: black;
     }
+
+    /* Relógio com contagem para próxima chamada */
     #relogio {
       position: absolute;
       top: 10px;
@@ -86,6 +103,8 @@
       align-items: flex-start;
       gap: 5px;
     }
+
+    /* Estilo quando não há pacientes */
     .sem-paciente {
       font-size: 1.5em;
       color: #999;
@@ -94,20 +113,29 @@
   </style>
 </head>
 <body>
+
+<!-- Som de aviso da chamada -->
 <audio id="somChamada" src="https://cdn.pixabay.com/download/audio/2022/03/24/audio_67e3fb15f5.mp3?filename=ding-dong-2-7056.mp3"></audio>
+
 <div class="painel-container">
+
+  <!-- Painel da senha atual -->
   <div class="atual">
     <div id="relogio"></div>
     <div id="senha-atual" class="info-box">
       <div class="sem-paciente">Nenhum paciente na fila.</div>
     </div>
   </div>
+
+  <!-- Painel com senhas anteriores -->
   <div class="anteriores">
     <div class="titulo">Senhas Chamadas</div>
     <div id="senhas-anteriores"></div>
   </div>
 </div>
+
 <script>
+  // Mapeamento dos códigos de especialidade para nomes completos
   const mapEspecialidades = {
     CG: 'Clínica Geral',
     GIN: 'Ginecologia',
@@ -115,11 +143,15 @@
     GER: 'Geriatria',
     ORT: 'Ortopedia'
   };
+
+  // Calcula o tempo restante até a próxima chamada (5 minutos padrão)
   function calcularTempoRestante() {
     const ultimaChamadaTime = parseInt(localStorage.getItem('ultimaChamadaTime')) || Date.now();
     const agora = Date.now();
     return Math.max(0, 300 - Math.floor((agora - ultimaChamadaTime) / 1000));
   }
+
+  // Atualiza o relógio com horário atual e contagem regressiva
   function atualizarRelogio() {
     const agora = new Date();
     const tempoRestante = calcularTempoRestante();
@@ -128,14 +160,20 @@
       <div id="contador">Próxima chamada em: <strong>${formatarTempo(tempoRestante)}</strong></div>
     `;
   }
+
+  // Formata os segundos em minutos:segundos
   function formatarTempo(segundos) {
     const m = String(Math.floor(segundos / 60)).padStart(2, '0');
     const s = String(segundos % 60).padStart(2, '0');
     return `${m}:${s}`;
   }
+
+  // Inicia o contador do relógio com atualização a cada segundo
   function iniciarContador() {
     setInterval(() => atualizarRelogio(), 1000);
   }
+
+  // Função que toca o som e fala o nome do paciente
   function falarPaciente(paciente) {
     const som = document.getElementById("somChamada");
     som.currentTime = 0;
@@ -144,14 +182,20 @@
         const msg = new SpeechSynthesisUtterance(`Senha ${paciente.senha}, paciente ${paciente.nome}`);
         msg.lang = 'pt-BR';
         window.speechSynthesis.speak(msg);
-      }, 1200);
+      }, 1200); // Aguarda o som antes de falar
     }).catch(e => console.error('Erro ao tocar som:', e));
   }
+
+  // Atualiza a interface com a última chamada e lista das anteriores
   function atualizarPainel() {
     const chamadas = JSON.parse(localStorage.getItem('chamadas')) || [];
-    const atual = chamadas[chamadas.length - 1];
-    const anteriores = chamadas.slice(0, -1).reverse();
+
+    const atual = chamadas[chamadas.length - 1];  // Última chamada
+    const anteriores = chamadas.slice(0, -1).reverse();  // Restantes em ordem reversa
+
     const atualDiv = document.getElementById("senha-atual");
+
+    // Exibe ou esconde a chamada atual
     if (atual) {
       atualDiv.className = `info-box ${atual.tipo === 'Preferencial' ? 'amarelo' : 'azul'}`;
       atualDiv.innerHTML = `
@@ -165,6 +209,8 @@
       atualDiv.className = 'info-box';
       atualDiv.innerHTML = `<div class="sem-paciente">Nenhum paciente na fila.</div>`;
     }
+
+    // Atualiza a lista de senhas anteriores
     const anterioresDiv = document.getElementById("senhas-anteriores");
     anterioresDiv.innerHTML = '';
     anteriores.forEach(p => {
@@ -176,14 +222,19 @@
       anterioresDiv.appendChild(div);
     });
   }
+
+  // Quando algum dado no localStorage mudar, atualiza automaticamente
   window.addEventListener('storage', (e) => {
     if (["chamadas", "filaPreferencial", "filaNormal"].includes(e.key)) {
       atualizarPainel();
     }
   });
+
+  // Inicializações
   atualizarRelogio();
   iniciarContador();
   atualizarPainel();
 </script>
+
 </body>
 </html>
