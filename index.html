@@ -135,6 +135,7 @@
 </div>
 
 <script>
+// Mapeia os códigos de especialidade para nomes descritivos
 const mapEspecialidades = {
   CG: 'Clínica Geral',
   GIN: 'Ginecologia',
@@ -143,27 +144,31 @@ const mapEspecialidades = {
   ORT: 'Ortopedia'
 };
 
+// Recupera os contadores salvos para limitar pacientes por especialidade
 function getContadores() {
   return JSON.parse(localStorage.getItem('contadoresEspecialidades') || '{}');
 }
 
+// Salva os contadores atualizados
 function setContadores(data) {
   localStorage.setItem('contadoresEspecialidades', JSON.stringify(data));
 }
 
+// Formata o tempo restante em minutos e segundos
 function formatarTempo(segundos) {
   const m = String(Math.floor(segundos / 60)).padStart(2, '0');
   const s = String(segundos % 60).padStart(2, '0');
   return `${m}:${s}`;
 }
 
+// Calcula quanto tempo falta para a próxima chamada automática do guichê
 function calcularTempoRestanteGuiche(guiche) {
   const ultima = parseInt(localStorage.getItem('ultimaChamadaTimeGuiche' + guiche)) || Date.now();
   const agora = Date.now();
   return Math.max(0, 300 - Math.floor((agora - ultima) / 1000));
 }
 
-let timerStartTimes = {1: Date.now(), 2: Date.now()};
+// Inicia o cronômetro automático de cada guichê (5 minutos)
 function iniciarTimerGuiche(guiche) {
   setInterval(() => {
     const restante = calcularTempoRestanteGuiche(guiche);
@@ -171,29 +176,32 @@ function iniciarTimerGuiche(guiche) {
     if (restante <= 0) {
       chamarProximoGuiche(guiche);
       localStorage.setItem('ultimaChamadaTimeGuiche' + guiche, Date.now());
-    timerStartTimes[guiche] = Date.now();
     }
   }, 1000);
 }
 
+// Chama o próximo paciente do guichê
 function chamarProximoGuiche(guiche) {
   const filaPreferencial = JSON.parse(localStorage.getItem('filaPreferencial') || '[]');
   const filaNormal = JSON.parse(localStorage.getItem('filaNormal') || '[]');
   let proximo = null;
 
+  // FIFO: pacientes são removidos do início da fila
+  // Prioriza a fila preferencial
   if (filaPreferencial.length > 0) {
-    proximo = filaPreferencial.shift();
+    proximo = filaPreferencial.shift(); // FIFO
     localStorage.setItem('filaPreferencial', JSON.stringify(filaPreferencial));
   } else if (filaNormal.length > 0) {
-    proximo = filaNormal.shift();
+    proximo = filaNormal.shift(); // FIFO
     localStorage.setItem('filaNormal', JSON.stringify(filaNormal));
   }
 
+  // Exibe paciente chamado no painel do guichê
   if (proximo) {
     localStorage.setItem('ultimaChamadaTimeGuiche' + guiche, Date.now());
     const chamadas = JSON.parse(localStorage.getItem('chamadas') || '[]');
     chamadas.push(proximo);
-    if (chamadas.length > 10) chamadas.shift();
+    if (chamadas.length > 10) chamadas.shift(); // mantém histórico curto (FIFO também aqui)
     localStorage.setItem('chamadas', JSON.stringify(chamadas));
     document.getElementById(`guiche${guiche}`).innerHTML = `
       Nome: ${proximo.nome}<br/>
@@ -208,16 +216,22 @@ function chamarProximoGuiche(guiche) {
   atualizarFilas();
 }
 
+// Gera senha para novo paciente
 function gerarSenha() {
   const nome = document.getElementById('nome').value.trim();
   const tipo = document.getElementById('tipo').value;
   const especialidade = document.getElementById('especialidade').value;
   if (!nome) return alert("Digite o nome do paciente.");
+
   const contadores = getContadores();
   contadores[especialidade] = (contadores[especialidade] || 0) + 1;
+
+  // Limite de 20 atendimentos por especialidade
   if (contadores[especialidade] > 20) return alert("Limite de pacientes atingido para esta especialidade hoje.");
+
   const senha = `${especialidade}${String(contadores[especialidade]).padStart(3, '0')}`;
   setContadores(contadores);
+
   const data = new Date();
   const paciente = {
     nome,
@@ -227,25 +241,30 @@ function gerarSenha() {
     data: data.toLocaleDateString(),
     hora: data.toLocaleTimeString()
   };
+
   const filaKey = tipo === "Preferencial" ? 'filaPreferencial' : 'filaNormal';
   const fila = JSON.parse(localStorage.getItem(filaKey) || '[]');
-  fila.push(paciente);
+  fila.push(paciente); // FIFO: adicionado ao fim da fila
   localStorage.setItem(filaKey, JSON.stringify(fila));
+
   atualizarFilas();
   document.getElementById('nome').value = '';
 }
 
+// Atualiza visualmente as filas na tela
 function atualizarFilas() {
   const normalDiv = document.getElementById('fila-normal');
   const preferencialDiv = document.getElementById('fila-preferencial');
   normalDiv.innerHTML = '';
   preferencialDiv.innerHTML = '';
+
   JSON.parse(localStorage.getItem('filaNormal') || '[]').forEach(p => {
     const div = document.createElement('div');
     div.className = 'paciente';
     div.textContent = `${p.senha} - ${p.nome}`;
     normalDiv.appendChild(div);
   });
+
   JSON.parse(localStorage.getItem('filaPreferencial') || '[]').forEach(p => {
     const div = document.createElement('div');
     div.className = 'paciente';
@@ -254,6 +273,7 @@ function atualizarFilas() {
   });
 }
 
+// Inicia o sistema
 iniciarTimerGuiche(1);
 iniciarTimerGuiche(2);
 atualizarFilas();
